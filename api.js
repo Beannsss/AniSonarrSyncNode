@@ -43,7 +43,9 @@ getTVDBIDForNewShow(item, callback) {
         title = item.media.title.english
     else
         title = item.media.title.romaji
-    title = title + ' (' + item.media.startDate.year +')'
+    // title = title + ' (' + item.media.startDate.year +')'
+    title.replace(' part \d', '')
+    title.replace(' season \d', '')
     sonnarrQuery(SONARRLOOKUP + '?term=' + encodeURIComponent(title), 'GET', null, callback)
 },
 

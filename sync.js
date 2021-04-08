@@ -9,11 +9,13 @@ function prettyJSON(obj) {
 }
 
 var newAnilistShows = []
+var aniList = []
 var tvdbSearchItems = []
 
 function syncNewShowsFromAnilist() {
     api.fetchUserAnilist(data => {
         let oldData = files.getUserListFromFile()
+        aniList = data
         if (oldData) {
             // console.log(JSON.stringify(oldData));
             let oldShows = getItemsFromList(oldData)
@@ -34,7 +36,7 @@ function syncNewShowsFromAnilist() {
 
 
         }
-        files.writeUserListToFile(data)
+        files.writeUserListToFile(aniList)
     })
 }
 
@@ -50,7 +52,7 @@ function checkAndAddShow(anilistItem, tvdbSearchItem) {
         let found = false
         sonarrShows.forEach(sonarrListItem => {
             if (sonarrListItem.tvdbId == tvdbSearchItem.tvdbId) {
-                if(sonarrListItem.tvdbId == 397774) {
+                if (sonarrListItem.tvdbId == 397774) {
                     console.log(sonarrListItem.tvdbId);
                     console.log(tvdbSearchItem.tvdbId);
                 }
@@ -130,11 +132,17 @@ function getShowsFromTVDBAndAdd() {
     newAnilistShows.forEach(anilistItem => {
 
         api.getTVDBIDForNewShow(anilistItem, sonarrItems => {
-            let sonarrItem = sonarrItems[0]
-            tvdbSearchItems.push(sonarrItem)
-            console.log(JSON.stringify(sonarrItem))
-            files.writePrettyJSON(sonarrItem, 'tvdbsearch')
-            checkAndAddShow(anilistItem, sonarrItem)
+            if (!sonarrItems.length) {
+                aniList.pop(anilistItem)
+            } else
+                for (let sonarrItem of sonarrItems) {
+                    if (sonarrItem.genres.includes("Anime")) {
+                        checkAndAddShow(anilistItem, sonarrItem)
+                        sonarrItems.splice(5)
+                        files.writePrettyJSON(sonarrItems, 'tvdbsearch')
+                        break;
+                    }
+                }
         });
     });
 }
