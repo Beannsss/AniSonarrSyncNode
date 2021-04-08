@@ -2,15 +2,14 @@ const { SONARRAPIKEY, ACCESSTOKEN, USERNAME, SONARRURL } = require('./auth');
 const { StringDecoder } = require("string_decoder");
 const fetch = require('node-fetch');
 const fs = require('fs')
-const queries = require('./queries')
+const queries = require('./queries');
+const { isTypeSystemDefinitionNode } = require('graphql');
+const { title } = require('process');
 
-
+const SONARRLOOKUP = 'series/lookup'
 var newAnilistShows = []
 var tags = []
 var userListResponse = '';
-const headers = {
-    'X-Api-Key': SONARRAPIKEY
-}
 
 function handleAnilistResponse(response) {
     return response.json().then(function (json) {
@@ -20,12 +19,13 @@ function handleAnilistResponse(response) {
 
 function handleSonarrResponse(response) {
   return response.json().then(function (json) {
+    //   console.log(json)
       return response.ok ? json : Promise.reject(json.data);
   });
 }
 
 function handleError(error) {
-    console.error(error);
+    console.log(error);
 }
 
 function writePrettyJSON(obj) {
@@ -37,7 +37,7 @@ function writePrettyJSON(obj) {
     })
 }
 
-//Requests
+//Anilist
 function anilistQuery(query, variables, callback) {
     let url = "https://graphql.anilist.co",
         options = {
@@ -99,11 +99,36 @@ function setCustomLists(mediaId, customLists, callback) {
     anilistMutation(query, variables, callback);
 }
 
+
+//SONARR
 function test(callback) {
     //probably want to change this
     fetch(SONARRURL + 'series?apikey=' + SONARRAPIKEY, callback).then(handleSonarrResponse)
         .then(callback)
         .catch(handleError);
+}
+
+function getTVDBIDForNewShow(item, callback) {
+    let title = ''
+    if(item.media.title.english)
+        title = item.media.title.english
+    else
+        title = item.media.title.romaji
+    title = title + ' (' + item.media.startDate.year +')'
+    sonnarrQuery(SONARRLOOKUP + '?term=' + encodeURIComponent(title), 'GET', null, callback)
+}
+
+function sonnarrQuery(endpoint, reqType, params, callback) {
+    let headers = {
+        'X-Api-Key': SONARRAPIKEY
+    }
+    let options = {
+        headers: headers,
+        method: reqType,
+    }
+    if(params)
+        options.body = params
+    fetch(SONARRURL + endpoint, options).then(handleSonarrResponse).then(callback).catch(handleError)
 }
 
 // fetchUserAnilist()
@@ -112,4 +137,6 @@ module.exports = {
     searchByName: searchByName,
     test: test,
     setCustomLists: setCustomLists,
+    getTVDBIDForNewShow: getTVDBIDForNewShow,
+
 }
