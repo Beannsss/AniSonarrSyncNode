@@ -11,6 +11,90 @@ var newAnilistShows = []
 var tags = []
 var userListResponse = '';
 
+module.exports = {
+// Anilist
+fetchUserAnilist(callback) {
+    let query = queries.getUserList, variables = { username: USERNAME };
+    anilistQuery(query, variables, callback)
+},
+
+searchByName(showName, callback, page = 1, perPage = 5) {
+    let query = queries.searchByName, variables = { search: showName, page: page, perPage: perPage }
+    anilistQuery(query, variables, callback)
+},
+
+setCustomLists(aniListItem, customLists, callback) {
+    if (!Array.isArray(customLists) || !customLists.length) {
+      console.log("No Custom Lists Found, Refusing Update");
+    }
+    let query = queries.saveCustomLists, variables = { mediaId: aniListItem.media.id, customLists: customLists };
+    anilistMutation(query, variables, callback);
+},
+
+
+//SONARR
+fetchSonarrList(callback) {
+    sonnarrQuery('series', 'GET', null, callback)
+},
+
+getTVDBIDForNewShow(item, callback) {
+    let title = ''
+    if(item.media.title.english)
+        title = item.media.title.english
+    else
+        title = item.media.title.romaji
+    title = title + ' (' + item.media.startDate.year +')'
+    sonnarrQuery(SONARRLOOKUP + '?term=' + encodeURIComponent(title), 'GET', null, callback)
+},
+
+getTagsFromSonarr(callback) {
+    sonnarrQuery('tag', 'GET', null, callback)
+},
+
+createTagInSonarr(label, callback) {
+    sonnarrQuery('tag', 'POST', {label: label}, callback)
+},
+
+addShowToSonarr(tvdbSearchItem, tag, callback) {
+    sonnarrQuery('series', 'POST', {
+        'tvdbId': tvdbSearchItem.tvdbId,
+        'title': tvdbSearchItem.title,
+        'titleSlug': tvdbSearchItem.titleSlug,
+        'profileId': 9,
+        //  'images' : json.dumps(str(series.jsonObject.images)),
+        //  'seasons' : str(series.jsonObject.seasons),
+        'seriesType': 'Anime',
+        'path': '/tv/Anime/' + tvdbSearchItem.title,
+        'seasonFolder': 'true',
+        'tags': [tag.id],
+        monitored: true
+    }, callback)
+},
+
+tagShowInSonarr(sonarrListItem, tag, callback) {
+    sonarrListItem.tags.push(tag.id)
+    sonnarrQuery('series', 'PUT', sonarrListItem, callback)
+}
+
+
+
+}
+
+//NON EXPORTS
+
+function sonnarrQuery(endpoint, reqType, params, callback) {
+    let headers = {
+        'X-Api-Key': SONARRAPIKEY
+    }
+    let options = {
+        headers: headers,
+        method: reqType,
+    }
+    if(params)
+        options.body = JSON.stringify(params)
+    fetch(SONARRURL + endpoint, options).then(handleSonarrResponse).then(callback).catch(handleError)
+}
+
 function handleAnilistResponse(response) {
     return response.json().then(function (json) {
         return response.ok ? json.data : Promise.reject(json.data);
@@ -19,7 +103,7 @@ function handleAnilistResponse(response) {
 
 function handleSonarrResponse(response) {
   return response.json().then(function (json) {
-    //   console.log(json)
+    //   console.log(json);
       return response.ok ? json : Promise.reject(json.data);
   });
 }
@@ -78,65 +162,4 @@ function anilistMutation(query, variables, callback) {
     fetch(url, options).then(handleAnilistResponse)
         .then(callback)
         .catch(handleError);
-}
-
-// functions
-function fetchUserAnilist(callback) {
-    let query = queries.getUserList, variables = { username: USERNAME };
-    anilistQuery(query, variables, callback)
-}
-
-function searchByName(showName, callback, page = 1, perPage = 5) {
-    let query = queries.searchByName, variables = { search: showName, page: page, perPage: perPage }
-    anilistQuery(query, variables, callback)
-}
-
-function setCustomLists(mediaId, customLists, callback) {
-    if (!Array.isArray(customLists) || !customLists.length) {
-      console.log("No Custom Lists Found, Refusing Update");
-    }
-    let query = queries.saveCustomLists, variables = { mediaId: mediaId, customLists: customLists };
-    anilistMutation(query, variables, callback);
-}
-
-
-//SONARR
-function test(callback) {
-    //probably want to change this
-    fetch(SONARRURL + 'series?apikey=' + SONARRAPIKEY, callback).then(handleSonarrResponse)
-        .then(callback)
-        .catch(handleError);
-}
-
-function getTVDBIDForNewShow(item, callback) {
-    let title = ''
-    if(item.media.title.english)
-        title = item.media.title.english
-    else
-        title = item.media.title.romaji
-    title = title + ' (' + item.media.startDate.year +')'
-    sonnarrQuery(SONARRLOOKUP + '?term=' + encodeURIComponent(title), 'GET', null, callback)
-}
-
-function sonnarrQuery(endpoint, reqType, params, callback) {
-    let headers = {
-        'X-Api-Key': SONARRAPIKEY
-    }
-    let options = {
-        headers: headers,
-        method: reqType,
-    }
-    if(params)
-        options.body = params
-    fetch(SONARRURL + endpoint, options).then(handleSonarrResponse).then(callback).catch(handleError)
-}
-
-// fetchUserAnilist()
-module.exports = {
-    fetchUserAnilist: fetchUserAnilist,
-    searchByName: searchByName,
-    test: test,
-    setCustomLists: setCustomLists,
-    getTVDBIDForNewShow: getTVDBIDForNewShow,
-
 }
