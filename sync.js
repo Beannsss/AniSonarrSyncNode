@@ -46,7 +46,7 @@ function checkAndAddShow(anilistItem, tvdbSearchItem) {
     let checkSonarrListAndAdd = data => {
         console.log(data);
         sonarrShows = data
-        if (anilistItem.customLists.shame)
+        if (anilistItem.customLists.Shame || anilistItem.customLists.Smut)
             return
         let sonarrShow
         let found = false

@@ -20,7 +20,7 @@ function writeUserListToFile(data) {
 
 function writePrettyJSON(obj, fileName) {
     // console.log(JSON.stringify(obj));
-    fs.writeFile('./jsonRef/' + fileName + '.json', JSON.stringify(obj, null, 2), err => {
+    fs.writeFile('jsonRef/' + fileName + '.json', JSON.stringify(obj, null, 2), err => {
         if (err) {
             console.error(err);
             return

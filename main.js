@@ -1,3 +1,6 @@
+const { ACCESSTOKEN } = require("./auth");
 const { syncNewShowsFromAnilistToSonarr } = require("./sync");
 
-syncNewShowsFromAnilistToSonarr()
+syncNewShowsFromAnilistToSonarr();
+
+// console.log(ACCESSTOKEN);
