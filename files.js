@@ -1,12 +1,18 @@
 const fs = require('fs')
+const {BUCKET} = require('./auth')
+const {Storage} = require('@google-cloud/storage');
 
+const storage = new Storage();
+const bucket = storage.bucket(BUCKET)
 const LISTPATH = 'list.json'
-function getUserListFromFile() {
-    if (fs.existsSync(LISTPATH))
-        return JSON.parse(fs.readFileSync(LISTPATH))
-    else
-        return false
-}
+
+const downloadAsJson = async (callback) => {
+    const file = await bucket
+      .file(LISTPATH)
+      .download();
+    let list = JSON.parse(file[0].toString('utf8'));
+    callback(list)
+  }
 
 function writeUserListToFile(data) {
     fs.writeFileSync('list.json', JSON.stringify(data), err => {
@@ -16,6 +22,7 @@ function writeUserListToFile(data) {
             return
         }
     })
+    bucket.upload('list.json')
 }
 
 function writePrettyJSON(obj, fileName) {
@@ -29,7 +36,8 @@ function writePrettyJSON(obj, fileName) {
 }
 
 module.exports = {
-    getUserListFromFile: getUserListFromFile,
+    // getUserListFromFile: getUserListFromFile,
+    downloadAsJson: downloadAsJson,
     writeUserListToFile: writeUserListToFile,
     writePrettyJSON: writePrettyJSON
 }

@@ -4,6 +4,12 @@ const { StringDecoder } = require("string_decoder");
 const { setCustomLists } = require('./api');
 const { writePrettyJSON } = require('./files');
 
+// Imports the Google Cloud client library
+const { Datastore } = require('@google-cloud/datastore');
+
+// Creates a client
+const datastore = new Datastore();
+
 function prettyJSON(obj) {
     console.log(JSON.stringify(obj, null, 2));
 }
@@ -14,29 +20,30 @@ var tvdbSearchItems = []
 
 function syncNewShowsFromAnilist() {
     api.fetchUserAnilist(data => {
-        let oldData = files.getUserListFromFile()
-        aniList = data
-        if (oldData) {
-            // console.log(JSON.stringify(oldData));
-            let oldShows = getItemsFromList(oldData)
-            let newShows = getItemsFromList(data)
-
-            newShows.forEach(anilistItem => {
-                let found = false
-                oldShows.forEach(anilistItem2 => {
-                    if (anilistItem.id == anilistItem2.id)
-                        found = true
-                })
-                if (!found)
-                    newAnilistShows.push(anilistItem)
-            })
-
-            console.log(JSON.stringify(newAnilistShows));
-            getShowsFromTVDBAndAdd()
-
-
-        }
-        files.writeUserListToFile(aniList)
+        files.downloadAsJson(oldData => {
+            console.log(oldData.MediaListCollection.lists.length)
+            aniList = data
+            console.log(aniList.MediaListCollection.lists.length)
+            if (oldData) {
+                // console.log(JSON.stringify(oldData));
+                let oldShows = getItemsFromList(oldData)
+                let newShows = getItemsFromList(data)
+    
+                    newShows.forEach(anilistItem => {
+                        let found = false
+                        oldShows.forEach(anilistItem2 => {
+                            if (anilistItem.id == anilistItem2.id)
+                                found = true
+                        })
+                        if (!found)
+                            newAnilistShows.push(anilistItem)
+                    })
+    
+                    console.log(JSON.stringify(newAnilistShows));
+                    getShowsFromTVDBAndAdd()
+            }
+            files.writeUserListToFile(aniList)
+        })
     })
 }
 
@@ -103,7 +110,11 @@ function addShowToSonarr(aniListItem, tvdbSearchItem) {
 var tags = []
 
 function getTagForShow(aniListItem, callback) {
-    let season = aniListItem.media.season.toLowerCase()
+    let season = ''
+    if (aniListItem.media.season)
+        season = aniListItem.media.season.toLowerCase()
+    else
+        season = 'unknown'
     let startYear = aniListItem.media.startDate.year
     let tagName = season + startYear
 
@@ -159,6 +170,63 @@ function getItemsFromList(data) {
         })
     });
     return aniListShows
+}
+
+// function getItemsFromListAndStore(data) {
+//     let aniListShows = []
+//     let aniListShowID = []
+//     data.MediaListCollection.lists.forEach(list => {
+//         list.entries.forEach(entry => {
+//             const key = datastore.key(['Anime', entry.id])
+//             entry.key = key
+//             entry = removeEmpty(entry)
+//             console.log(entry)
+//             if (!aniListShowID.includes(entry.id)) {
+//                 aniListShows.push(entry)
+//                 aniListShowID.push(entry.id)
+//             }
+//         })
+//     });
+//     datastore.save(aniListShows)
+//     return aniListShows
+// }
+
+function getRidOfNullValues(entry) {
+    Object.keys(entry).forEach(key => {
+        if (entry[key] === null) {
+            delete entry[key];
+        }
+        if (Object.keys(entry[key]).length) {
+            getRidOfNullValues(entry[key])
+        }
+    });
+}
+
+function removeEmpty(obj) {
+    return Object.fromEntries(
+        Object.entries(obj)
+            .filter(([_, v]) => v != null)
+            .map(([k, v]) => [k, v === Object(v) ? removeEmpty(v) : v])
+    );
+}
+
+function pruneEmpty(obj) {
+    return function prune(current) {
+        _.forOwn(current, function (value, key) {
+            if (_.isUndefined(value) || _.isNull(value) || _.isNaN(value) ||
+                (_.isString(value) && _.isEmpty(value)) ||
+                (_.isObject(value) && _.isEmpty(prune(value)))) {
+
+                delete current[key];
+            }
+        });
+        // remove any leftover undefined values from the delete 
+        // operation on an array
+        if (_.isArray(current)) _.pull(current, undefined);
+
+        return current;
+
+    }(_.cloneDeep(obj));  // Do not modify the original object, create a clone instead
 }
 
 function getCustomListsForSeries(series) {
